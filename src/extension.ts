@@ -154,6 +154,30 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // Command: retry login check
+  const retryLoginCheckCommand = vscode.commands.registerCommand(
+    'antigravity-quota-watcher.retryLoginCheck',
+    async () => {
+      if (!quotaService) {
+        vscode.window.showWarningMessage('配额服务未初始化，请先检测端口');
+        return;
+      }
+
+      vscode.window.showInformationMessage('🔄 正在重新检测登录状态...');
+      statusBarService?.showFetching();
+
+      // 立即触发一次配额获取，会自动检测登录状态
+      await quotaService.stopPolling();
+
+      // 使用 setTimeout 确保有足够时间让用户登录
+      setTimeout(() => {
+        if (config.enabled && quotaService) {
+          quotaService.startPolling(config.pollingInterval);
+        }
+      }, 1000);
+    }
+  );
+
   // Command: re-detect port
   const detectPortCommand = vscode.commands.registerCommand(
     'antigravity-quota-watcher.detectPort',
@@ -231,6 +255,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     showQuotaCommand,
     refreshQuotaCommand,
+    retryLoginCheckCommand,
     detectPortCommand,
     configChangeDisposable,
     { dispose: () => quotaService?.dispose() },

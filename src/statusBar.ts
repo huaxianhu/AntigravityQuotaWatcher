@@ -30,6 +30,9 @@ export class StatusBarService {
   }
 
   updateDisplay(snapshot: QuotaSnapshot): void {
+    // 恢复默认命令
+    this.statusBarItem.command = 'antigravity-quota-watcher.showQuota';
+
     const parts: string[] = [];
 
     if (this.showPromptCredits && snapshot.promptCredits) {
@@ -276,7 +279,9 @@ export class StatusBarService {
     this.statusBarItem.text = '$(account) 未登录 Antigravity';
     this.statusBarItem.backgroundColor = undefined;
     this.statusBarItem.color = new vscode.ThemeColor('statusBarItem.warningForeground');
-    this.statusBarItem.tooltip = '请先登录 Google 账户以查看模型配额信息';
+    this.statusBarItem.tooltip = '请先登录 Google 账户以查看模型配额信息\n\n点击此处重新检测登录状态';
+    // 修改命令为重新检测
+    this.statusBarItem.command = 'antigravity-quota-watcher.retryLoginCheck';
     this.statusBarItem.show();
   }
 

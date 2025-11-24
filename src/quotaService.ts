@@ -108,24 +108,22 @@ export class QuotaService {
     }
 
     try {
-      // 首先检查用户是否已登录
-      const isLoggedIn = await this.checkLoginStatus();
-      if (!isLoggedIn) {
-        console.warn('用户未登录，无法获取配额信息');
-        if (this.loginStatusCallback) {
-          this.loginStatusCallback(false);
-        }
-        // 重置错误计数，因为这不是真正的错误
-        this.consecutiveErrors = 0;
-        this.retryCount = 0;
-        this.isFirstAttempt = false;
-        return;
-      }
-
-      // 通知登录状态
-      if (this.loginStatusCallback) {
-        this.loginStatusCallback(true);
-      }
+      // 注意: 登录状态检测已禁用
+      // 原因: GetUnleashData API 需要完整的认证上下文(API key等)，插件无法获取
+      // 如果用户未登录，获取配额时会自然失败并显示错误信息
+      //
+      // 保留原代码供参考:
+      // const isLoggedIn = await this.checkLoginStatus();
+      // if (!isLoggedIn) {
+      //   console.warn('用户未登录，无法获取配额信息');
+      //   if (this.loginStatusCallback) {
+      //     this.loginStatusCallback(false);
+      //   }
+      //   this.consecutiveErrors = 0;
+      //   this.retryCount = 0;
+      //   this.isFirstAttempt = false;
+      //   return;
+      // }
 
       let snapshot: QuotaSnapshot;
       switch (this.apiMethod) {
@@ -204,13 +202,16 @@ export class QuotaService {
     try {
       const response = await this.makeGetUnleashDataRequest();
 
+      // 打印完整响应
+      console.log('GetUnleashData 完整响应:', JSON.stringify(response, null, 2));
+
       // 检查响应中是否包含 userId
       const userId = response?.context?.userId;
       const hasUserId = userId !== undefined && userId !== null && userId !== '';
 
       console.log(`登录状态检测: ${hasUserId ? '已登录' : '未登录'}`);
       if (hasUserId) {
-        console.log(`用户 ID: ${userId}`);
+        console.log(`用户 ID: ${userId?.substring(0, 20)}...`);
       }
 
       return hasUserId;
@@ -226,19 +227,10 @@ export class QuotaService {
    */
   private async makeGetUnleashDataRequest(): Promise<any> {
     const requestBody = JSON.stringify({
-      context: {
-        properties: {
-          devMode: "false",
-          extensionVersion: "",
-          hasAnthropicModelAccess: "true",
-          ide: "antigravity",
-          ideVersion: "1.11.2",
-          installationId: "quota-watcher",
-          language: "UNSPECIFIED",
-          os: "windows",
-          requestedModelId: "MODEL_UNSPECIFIED"
-        }
-      }
+      ideName: "antigravity",
+      locale: "en",
+      ideVersion: "1.11.2",
+      extensionName: "antigravity"
     });
 
     const headers: any = {
