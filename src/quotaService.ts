@@ -12,6 +12,10 @@ export class QuotaService {
   private readonly GET_USER_STATUS_PATH = '/exa.language_server_pb.LanguageServerService/GetUserStatus';
   private readonly COMMAND_MODEL_CONFIG_PATH = '/exa.language_server_pb.LanguageServerService/GetCommandModelConfigs';
 
+  // 重试配置
+  private readonly MAX_RETRY_COUNT = 3;
+  private readonly RETRY_DELAY_MS = 5000; // 5秒
+
   // Primary HTTPS Connect port
   private port: number;
   // Optional HTTP fallback port (extension_server_port)
@@ -21,6 +25,8 @@ export class QuotaService {
   private errorCallback?: (error: Error) => void;
   private isFirstAttempt: boolean = true;
   private consecutiveErrors: number = 0;
+  private retryCount: number = 0;
+  private isRetrying: boolean = false;
   private csrfToken?: string;
   private apiMethod: QuotaApiMethod = QuotaApiMethod.GET_USER_STATUS;
 
@@ -43,12 +49,14 @@ export class QuotaService {
     this.port = port;
     this.httpPort = this.httpPort ?? port;
     this.consecutiveErrors = 0;
+    this.retryCount = 0;
   }
 
   setPorts(connectPort: number, httpPort?: number): void {
     this.port = connectPort;
     this.httpPort = httpPort ?? connectPort;
     this.consecutiveErrors = 0;
+    this.retryCount = 0;
   }
 
   onQuotaUpdate(callback: (snapshot: QuotaSnapshot) => void): void {
@@ -75,6 +83,12 @@ export class QuotaService {
   }
 
   private async fetchQuota(): Promise<void> {
+    // 如果正在重试中，跳过本次调用
+    if (this.isRetrying) {
+      console.log('正在重试中，跳过本次轮询...');
+      return;
+    }
+
     console.log('开始获取配额信息...');
     try {
       let snapshot: QuotaSnapshot;
@@ -104,7 +118,9 @@ export class QuotaService {
         }
       }
 
+      // 成功获取配额，重置错误计数和重试计数
       this.consecutiveErrors = 0;
+      this.retryCount = 0;
       this.isFirstAttempt = false;
 
       if (this.updateCallback) {
@@ -116,10 +132,22 @@ export class QuotaService {
       this.consecutiveErrors++;
       console.error(`配额获取失败 (第 ${this.consecutiveErrors} 次):`, error.message);
 
-      if (this.consecutiveErrors <= 3) {
-        console.log(`前 ${this.consecutiveErrors} 次错误，静默忽略...`);
+      // 如果还没达到最大重试次数，进行延迟重试
+      if (this.retryCount < this.MAX_RETRY_COUNT) {
+        this.retryCount++;
+        this.isRetrying = true;
+        console.log(`将在 ${this.RETRY_DELAY_MS / 1000} 秒后进行第 ${this.retryCount} 次重试...`);
+
+        setTimeout(async () => {
+          this.isRetrying = false;
+          await this.fetchQuota();
+        }, this.RETRY_DELAY_MS);
         return;
       }
+
+      // 达到最大重试次数，报告错误
+      console.error(`已达到最大重试次数 (${this.MAX_RETRY_COUNT})，停止重试`);
+      this.retryCount = 0; // 重置重试计数，等待下次轮询
 
       if (this.errorCallback) {
         this.errorCallback(error as Error);

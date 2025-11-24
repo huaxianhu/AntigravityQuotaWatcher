@@ -159,8 +159,6 @@ export class StatusBarService {
       lines.push('');
     }
 
-    lines.push('Click to view details');
-
     this.statusBarItem.tooltip = lines.join('\n');
   }
 
