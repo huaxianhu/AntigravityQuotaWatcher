@@ -60,7 +60,7 @@
 
 ## 使用方法
 
- 安装插件，重启 Antigravity
+[下载插件](https://github.com/wusimpl/AntigravityQuotaWatcher/releases/tag/V0.6.5)，然后安装插件，重启 Antigravity
 
  ![Installation](install.png)
 
